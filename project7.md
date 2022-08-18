@@ -3,7 +3,7 @@
 
 First Step - Prepare the needed Servers starting with NFS server.
 
-1. Launch 5 EC2 instances on AWS cloud. 3 webservers, 1 NFS server (with RHEL 8 OS), and 1 database server (ubuntu 20.4+ mysql).
+1. Launch 4 EC2 instances on AWS cloud. 2 webservers, 1 NFS server (with RHEL 8 OS), and 1 database server (ubuntu 20.4+ mysql).
 
 ![launch EC2 instance](./images/launch-ec2-instance.jpg)
 ![launch EC2 instance](./images/launch-ec2-instance2.jpg)
@@ -15,12 +15,18 @@ First Step - Prepare the needed Servers starting with NFS server.
     - Run `sudo gdisk /dev/xvdf`. 
     - Run `sudo gdisk /dev/xvdg`. 
     - Run `sudo gdisk /dev/xvdh`.
+
+![create sigle partition](./images/singlepartition.png)
+
 - *Install lvm package:* 
     - `sudo yum install lvm2 -y`.
 - *To check for available partitions:* 
     - Run `sudo lvmdiskscan`.
 - *Create physical volumes to be used by lvm:* 
     - Run `sudo pvcreate /dev/xvdf1 /dev/xvdg1 /dev/xvdh1`
+
+![create physical volume](./images/create-physicalvolume.png)
+
 - *Check that the pvs have been added:* 
     - Run `sudo pvs`.
 - *Create volume group (as a single storage space):*
@@ -31,6 +37,8 @@ First Step - Prepare the needed Servers starting with NFS server.
     - Run `sudo lvcreate -n lv-apps -L 9G webdata-vg`
     - Run `sudo lvcreate -n lv-logs -L 9G webdata-vg`
     - Run `sudo lvcreate -n lv-opt -L 9G webdata-vg`
+
+![create logical volume](./images/create-l-volumes.png)
 
 - *Format disks as xfs instead of ext4:*
     - Run `sudo mkfs -t xfs /dev/webdata-vg/lv-apps`
@@ -52,7 +60,7 @@ First Step - Prepare the needed Servers starting with NFS server.
     - Run `sudo mount /dev/webdata-vg/lv-logs /mnt/logs` 
     - Run `sudo mount /dev/webdata-vg/lv-opt /mnt/opt`
 
-![create mount points](./images/launch-ec2-instance.jpg)
+![create mount points](./images/create-mountpoints.png)
 
 4. Install NFS server, configure it to start on reboot and make sure it is up and running.
 
@@ -76,7 +84,7 @@ First Step - Prepare the needed Servers starting with NFS server.
     - Run `sudo systemctl restart nfs-server.service`
     - Run `sudo systemctl status nfs-server.service`
 
-![setting permmission](./images/permission-set.jpg)
+![setting permmission](./images/permission-set.png)
 
 - Configure access to NFS for clients within the same subnet 
 (example of Subnet CIDR – 172.31.32.0/20 ):Edit exports file.
@@ -109,6 +117,8 @@ Second Step — Configure The Database Server
     - Run `sudo mysql`
     - Run `create database tooling;`
 
+    ![install mysql](./images/create-dbtooling.png)
+
 3. Create a database user and name it webaccess. Grant permission to webaccess user on tooling database to do anything only from the webservers subnet cidr.
     - Run `create user 'webaccess'@'webserver1 subnet cidr IP' identified by 'password';`
     - Run `grant all privileges on tooling.* to 'webaccess'@'webserver1 subnet cidr IP';`
@@ -126,6 +136,9 @@ Third Step — Prepare the Web Servers.
     - Run `sudo yum update -y`
 - Install NFS client.
     - Run `sudo yum install nfs-utils nfs4-acl-tools -y`
+
+![install nfs clients](./images/nfsclient-installed.png)
+
 - Mount /var/www/ and target the NFS server’s export for /apps
     - Run `sudo mkdir /var/www`
     - Run `sudo mount -t nfs -o rw,nosuid <NFS-Server-Private-IP-Address>:/mnt/apps  /var/www`
@@ -142,6 +155,9 @@ Third Step — Prepare the Web Servers.
 
 3. Install Apache to serve content to users.
     - Run `sudo yum install httpd -y`
+
+![install apache](./images/install-apache.png)
+
 4. Install PHP and its dependencies
     - Run `sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm -y`
     - Run `sudo dnf install dnf-utils http://rpms.remirepo.net/enterprise/remi-release-8.rpm -y`
@@ -154,10 +170,10 @@ Third Step — Prepare the Web Servers.
     - Run `sudo su` followed by `setsebool -P httpd_execmem 1`
     - Run `sudo systemctl restart httpd`
 
-![Install Apache and PHP](./images/install-apache.jpg)
-![Install Apache and PHP](./images/install-php.jpg)
+![Install PHP](./images/install-apache.jpg)
+![Install PHP](./images/install-php.jpg)
 
-###  Repeat steps 1-4 above for the another 2 web servers.
+###  Repeat steps 1-4 above for the another web servers.
 
 5. Verify that Apache files and directories are available on the Web Servers in /var/www and also on the NFS server in /mnt/apps. You can try to create a new file test.txt the directory on one web server and check if the same file is accessible from other Servers.
     - Run `ls /var/www` on webservers &
@@ -182,6 +198,9 @@ from the repository is deployed to /var/www/html.
     - INSTALL GIT on webserver
         - Run `sudo yum install git -y` then `git init`
         - followed by `git clone <url from forked darey.io>`
+
+![install git and clone url](./images/clone-tooling-fm-git.png).
+
         - `ls` to see tooling folder then `cd` into it
     - then move the html folder to /var/www/
         - first - `sudo ls /var/www` 
@@ -195,6 +214,10 @@ from the repository is deployed to /var/www/html.
 
 2. Open TCP port 80 on the inbound rule of the Web Servers. Try to access webserver with public IP and check if apache is runing.
 - Run `sudo systemctl status httpd`
+
+![open port 80 and check status of httpd](./images/open-port80.png)
+![check status of httpd](./images/check-apache-status)
+
 
 - Check permissions to  /var/www/html folder and also disable SELinux if error occurs.
     - Run `sudo setenforce 0`
@@ -213,8 +236,11 @@ from the repository is deployed to /var/www/html.
 
 ![edit functions.php](./images/edit-functions.php.jpg)
 
-5. Still on webserver. Install mysql client on webserver
-    - Run `sudo yum install mysql -y`
+5. Still on webservers. Install mysql client on webservers
+    - Run `sudo yum install mysql -y` or
+    - Run `sudo dnf -y install @mysql`
+
+![install mysql client](./images/mysqlclient.png)
 
 6. On Database server EC2 settings at AWS, add mysql/arora to the inbound rule and add webserver sub cidr IP. Also edit mysql bind address via the terminal.
     - Run `sudo vi /etc/mysql/mysql.conf.d/mysqld.cnf`
@@ -235,11 +261,11 @@ from the repository is deployed to /var/www/html.
     - Run `sudo mysql`
     - Run `show databases;`
     - `use tooling;`
-    - `show tables;`
+    - `show tables;` then `exit`
 
 ![access tool from DB server](./images/access-tooling-from-dbserver.jpg)
 
-9. Remove the welcome page.
+9. Locate Apache server welcome page on webservers
     - `ls /etc/httpd/conf.d/welcome.conf`
     - `vi /etc/httpd/conf.d/welcome.conf`
 -   Rename the file.
@@ -247,6 +273,8 @@ from the repository is deployed to /var/www/html.
 -   Restart Apache
     - `sudo systemctl restart httpd`
     - `sudo systemctl status httpd`
+
+![remove apache welcome page](./images/entire-setupu.jpg)    
 
 10. Open the website app in the browser using the public IP of webserver.
     -   and make sure you can login into the website .
